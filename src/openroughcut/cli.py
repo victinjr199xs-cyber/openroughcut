@@ -33,6 +33,10 @@ def _cut(args) -> int:
         caption_uppercase=args.caption_upper,
         formats=tuple(f.strip() for f in args.formats.split(",")),
         render=args.render,
+        filmcraft=args.filmcraft,
+        filmcraft_export=args.filmcraft_export,
+        burn_captions=not args.no_burn,
+        loudness_lufs=None if args.lufs is None or args.lufs == 0 else args.lufs,
     )
     out_dir = Path(args.out_dir) if args.out_dir else Path(args.video).parent / "openroughcut"
     result = rough_cut(args.video, out_dir, o)
@@ -80,8 +84,12 @@ def _podcast(args) -> int:
     if len(args.cam) not in (1, len(args.mic)):
         print("give one --cam per speaker (same order as --mic)", file=sys.stderr)
         return 2
-    print(json.dumps(podcast_edit(args.cam, args.mic, args.output, wide=args.wide, audio=args.audio,
-                                  min_shot=args.min_shot), indent=1))
+    result = podcast_edit(args.cam, args.mic, args.output, wide=args.wide, audio=args.audio, min_shot=args.min_shot)
+    if args.filmcraft:
+        from . import filmcraft
+
+        result["fcproj"] = filmcraft.build_project(args.output, Path(args.output).with_suffix(".fcproj"))["project"]
+    print(json.dumps(result, indent=1))
     return 0
 
 
@@ -121,6 +129,12 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--no-captions", action="store_true")
     c.add_argument("--formats", default="xml,edl,srt,json", help="any of xml,edl,srt,vtt,json")
     c.add_argument("--render", action="store_true", help="also render an MP4 preview with ffmpeg")
+    fc = c.add_argument_group("FilmCraft (open-source editor)")
+    fc.add_argument("--filmcraft", action="store_true", help="build an editable FilmCraft project (.fcproj)")
+    fc.add_argument("--filmcraft-export", action="store_true",
+                    help="build the project and render the final MP4 with FilmCraft")
+    fc.add_argument("--no-burn", action="store_true", help="don't burn captions into the FilmCraft export")
+    fc.add_argument("--lufs", type=float, default=-14.0, help="loudness target for the export, 0 = off (default -14)")
     caption_opts(c)
     c.set_defaults(func=_cut)
 
@@ -144,6 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
     pc.add_argument("--audio", help="audio used in the sequence (default: first camera)")
     pc.add_argument("--min-shot", type=float, default=2.0, help="shortest shot, seconds (default 2)")
     pc.add_argument("-o", "--output", default="podcast.xml")
+    pc.add_argument("--filmcraft", action="store_true", help="also build a FilmCraft project next to the XML")
     pc.set_defaults(func=_podcast)
 
     s = sub.add_parser("serve", help="local HTTP API used by the Premiere Pro panel")

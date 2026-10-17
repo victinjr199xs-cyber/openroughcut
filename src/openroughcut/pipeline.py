@@ -39,6 +39,10 @@ class CutOptions:
     caption_uppercase: bool = False
     formats: tuple[str, ...] = ("xml", "edl", "srt", "json")
     render: bool = False
+    filmcraft: bool = False  # build a FilmCraft .fcproj
+    filmcraft_export: bool = False  # ...and render the final MP4 with FilmCraft
+    burn_captions: bool = True
+    loudness_lufs: float | None = -14.0
 
 
 def needs_transcript(o: CutOptions) -> bool:
@@ -133,6 +137,23 @@ def rough_cut(video: str | Path, out_dir: str | Path, o: CutOptions, log=print,
     if o.render:
         log("rendering preview with ffmpeg...")
         outputs["preview"] = str(render_preview(video, keep, out_dir / f"{stem}.roughcut.mp4"))
+
+    if o.filmcraft or o.filmcraft_export:
+        from . import filmcraft
+
+        xml = outputs.get("xml")
+        if not xml:  # FilmCraft builds the project from the XML
+            xml = str(out_dir / f"{stem}.roughcut.xml")
+            Path(xml).write_text(to_xmeml(clips, name=f"{stem} - rough cut"), encoding="utf-8")
+        log("building FilmCraft project...")
+        fc = filmcraft.build_project(xml, out_dir / f"{stem}.roughcut.fcproj", outputs.get("srt"))
+        outputs["fcproj"] = fc["project"]
+        if o.filmcraft_export:
+            log("rendering final video with FilmCraft...")
+            dst = out_dir / f"{stem}.final.mp4"
+            filmcraft.export(fc["project"], dst, burn_captions=o.burn_captions and "srt" in outputs,
+                             loudness_lufs=o.loudness_lufs)
+            outputs["final"] = str(dst)
 
     return {"stats": stats, "outputs": outputs, "ai_notes": notes}
 

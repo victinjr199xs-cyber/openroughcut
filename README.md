@@ -33,6 +33,7 @@ retakes (heuristic): 1 sentences
 | **Captions** | SRT/VTT from local Whisper with word timestamps, in 99 languages, remapped to the edited timeline. `--caption-words 3 --caption-upper` gives Reels-style cards. |
 | **Podcast multicam** | `orc podcast` switches camera angles to whoever is talking, with a minimum shot length and an optional wide shot for cross-talk. |
 | **Non-destructive** | Outputs FCP7 XML/EDL that point at your original media. Every cut stays editable and nothing is re-encoded unless you ask for `--render`. |
+| **FilmCraft projects + final render** | `--filmcraft-export` builds a FilmCraft project and renders the final MP4 with burned-in captions, fully open source end to end. |
 | **Premiere Pro panel** *(experimental)* | A UXP panel that sends the clip to the local engine and imports the result. |
 
 ## Install
@@ -86,6 +87,25 @@ Resolve**: *File > Import > Timeline*. Drop the `.srt` on a caption track.
 
 `*.cuts.json` lists every cut with its reason, so you can review the decisions or build your own tooling.
 
+## FilmCraft (free, open-source editor): no Premiere needed
+
+[FilmCraft](https://github.com/storytold/filmcraft) is an open-source NLE. OpenRoughCut drives its headless
+`filmcraft-cli`: the rough-cut sequence and a styled caption track go into a FilmCraft project, and it can
+render the final video with burned-in captions and loudness normalization.
+
+```bash
+# point at the CLI (or put filmcraft-cli on PATH)
+set ORC_FILMCRAFT=D:\Apps\FilmCraft\filmcraft-cli.exe
+
+orc cut recording.mp4 --filmcraft                 # -> recording.roughcut.fcproj (open it in FilmCraft to refine)
+orc cut recording.mp4 --filmcraft-export          # -> + recording.final.mp4, captions burned, -14 LUFS
+orc cut recording.mp4 --filmcraft-export --no-burn --lufs 0
+orc podcast --cam a.mp4 --mic a.wav --cam b.mp4 --mic b.wav -o pod.xml --filmcraft
+```
+
+Tested with FilmCraft 0.7.2 on Windows: the XML imports with media linked, captions land on track C1 in sync
+with the cut, and the export matches the cut length. FilmCraft is alpha software, so check your exports.
+
 ## Premiere Pro panel (experimental)
 
 1. Run the engine: `orc serve` (listens on `127.0.0.1:8765` only).
@@ -135,7 +155,8 @@ trademarks of their owners.
 
 Ferramenta open source que faz o **primeiro corte** de vídeos falados: remove silêncios, "é…", "hum"
 e takes repetidos, gera legendas sincronizadas com o corte e exporta uma sequência editável (XML) para
-Premiere Pro / DaVinci Resolve. Roda localmente. O passe com o Claude é opcional e envia só o texto
+Premiere Pro / DaVinci Resolve, ou um projeto do **FilmCraft** (editor open source) já com o vídeo final
+renderizado (`--filmcraft-export`). Roda localmente. O passe com o Claude é opcional e envia só o texto
 da transcrição. Exemplo: `orc cut gravacao.mp4 --language pt`.
 
 MIT License.
