@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -32,7 +33,9 @@ def frames(seconds: float, fps: Fraction) -> int:
 
 
 def path_url(path: str) -> str:
-    p = os.path.abspath(path).replace("\\", "/")
+    # Windows drive paths are kept as given, so XML made on any OS can point at them
+    p = path if re.match(r"^[A-Za-z]:[\\/]", path) else os.path.abspath(path)
+    p = p.replace("\\", "/")
     if not p.startswith("/"):
         p = "/" + p  # Windows drive letter
     return "file://localhost" + quote(p, safe="/")
